@@ -1,0 +1,89 @@
+---
+title: "Baseline Category Logits"
+output: html_notebook
+---
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+
+Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Ctrl+Shift+Enter*. 
+
+```{r}
+library(dplyr)
+library(MASS)
+library(tidyr)
+library(readxl)
+library(VGAM)
+library(mclogit)
+library(nnet)
+library(car)
+setwd("C:/Users/albert go/Desktop/Logistic Models")
+```
+
+
+Get Structure of the Data
+
+```{r}
+fiesdata <- read.csv("FIESSORT.csv")
+fiesdata$House <- as.factor(fiesdata$House)
+fiesdata$House <- relevel(fiesdata$House, ref = 3)
+fiesdata$NonRelated <- as.factor(fiesdata$NonRelated)
+fiesdata$ExtendedFamily <- as.factor(fiesdata$ExtendedFamily)
+str(fiesdata)
+```
+
+Fit full model
+```{r}
+interceptfit <- mblogit(formula = House ~ 1, data = fiesdata)
+fullmodelfit <- mblogit(formula = House ~ ExtendedFamily + NonRelated + Total.Food.Expenditure + Clothing..Footwear.and.Other.Wea + Housing.and.water.Expenditure + Medical.Care.Expenditure + Transportation.Expenditure + Communication.Expenditure + Education.Expenditure, data = fiesdata)
+```
+```{r}
+summary(fullmodelfit)
+modelfittest <- anova(fullmodelfit, interceptfit) #Test of Model Fit, Produce the G^2 Statistic 
+Gsq1 <- -1* modelfittest$Deviance[2]
+Df1 <- -1* modelfittest$Df[2]
+pvalG2 <- pchisq(q = Gsq1, df =  Df1, lower.tail=FALSE)
+
+collabel <- c("G^2", "DF", "P < ChiSq")
+val1 <- c(Gsq1, Df1, pvalG2)
+print(data.frame(collabel, val1))
+```
+
+
+
+Reduced Model
+
+```{r}
+reduced_model1 <- mblogit(formula = House ~ ExtendedFamily + Total.Food.Expenditure + Clothing..Footwear.and.Other.Wea + Housing.and.water.Expenditure + Medical.Care.Expenditure + Transportation.Expenditure + Communication.Expenditure, data = fiesdata)
+summary(reduced_model1)
+```
+
+```{r}
+anova(interceptfit, reduced_model1, test="Chisq")
+anova(reduced_model1, fullmodelfit, test="Chisq")
+```
+
+USING VGLM
+
+```{r}
+full_modelfit_vglm <- vglm(formula = House ~ ExtendedFamily + NonRelated + Total.Food.Expenditure + Clothing..Footwear.and.Other.Wea + Housing.and.water.Expenditure + Medical.Care.Expenditure + Transportation.Expenditure + Communication.Expenditure + Education.Expenditure, data = fiesdata, family = "multinomial" )
+anova(full_modelfit_vglm, type = "III")
+```
+Using the Multinom function
+```{r}
+fies.multinom <- multinom(formula = House ~ ExtendedFamily + NonRelated + Total.Food.Expenditure + Clothing..Footwear.and.Other.Wea + Housing.and.water.Expenditure + Medical.Care.Expenditure + Transportation.Expenditure + Communication.Expenditure + Education.Expenditure,
+                          data = fiesdata,
+                          Hess = T
+)
+```
+```{r}
+summary(fies.multinom, Wald = T)
+fullmodel_stats <- summary(fies.multinom, Wald = T)
+```
+
+```{r}
+fullmodel_z <- fullmodel_stats$Wald.ratios
+p <- 2* (1-pnorm(abs(fullmodel_z)))
+zapsmall(p)
+Anova(fies.multinom, type = "III")
+```
+
